@@ -8,7 +8,6 @@ from game import MazeGame
 from model import MazeTransformer
 
 
-# FIX A: دالة مساعدة تبني maze يعكس موضع اللاعب الحالي
 def get_current_maze(game, original_maze):
     """Returns maze with player at current position (not start)."""
     m = original_maze.copy()
@@ -33,7 +32,7 @@ class DQNTrainer:
 
         with torch.no_grad():
             maze_tensor = torch.tensor(maze, dtype=torch.long).to(self.device)
-            log_probs, _ = self.agent(maze_tensor)          # FIX B: unpack (log_probs, value)
+            log_probs, _ = self.agent(maze_tensor)
             return torch.argmax(log_probs).item()
 
     def shaped_reward(self, reward, prev_pos, game):
@@ -71,16 +70,12 @@ class DQNTrainer:
                 episode_reward += reward
                 steps += 1
 
-                # FIX A + B: احسب loss على الحالة الحالية
                 maze_tensor = torch.tensor(current_maze, dtype=torch.long).to(self.device)
                 log_probs, value = self.agent(maze_tensor)
 
-                # FIX C: REINFORCE مع baseline
-                # advantage = r - b(s) يقلل تباين الـ gradient
                 advantage = reward - value.item()
                 policy_loss = -log_probs[action] * advantage
 
-                # FIX C: value loss - يعلّم الـ baseline يتوقع الـ reward
                 value_loss = (value - reward) ** 2
 
                 loss = policy_loss + 0.5 * value_loss
@@ -131,12 +126,11 @@ class DQNTrainer:
         action_names = ["Up", "Down", "Left", "Right"]
 
         while not done and steps < max_steps:
-            # FIX A: هنا أيضاً نستخدم الحالة الحالية
             current_maze = get_current_maze(game, maze)
             action = self.choose_action(current_maze)
-            prev_pos = game.agent_pos.copy()  # Store previous position for reward shaping
+            prev_pos = game.agent_pos.copy()
             state, reward, done = game.step(action)
-            reward = self.shaped_reward(reward, prev_pos, game)  # Apply reward shaping
+            reward = self.shaped_reward(reward, prev_pos, game)
             total_reward += reward
             steps += 1
 
@@ -144,9 +138,9 @@ class DQNTrainer:
                 print(f"  Step {steps}: {action_names[action]} → {game.agent_pos} (reward: {reward})")
 
         if done:
-            print(f"✓ SOLVED in {steps} steps | Points: {game.points}")
+            print(f" SOLVED in {steps} steps | Points: {game.points}")
         else:
-            print(f"✗ Not solved | Steps: {steps}, Reward: {total_reward}")
+            print(f" Not solved | Steps: {steps}, Reward: {total_reward}")
 
         return steps, total_reward
 
@@ -166,5 +160,7 @@ if __name__ == "__main__":
     print("Testing Results")
     print("=" * 60)
     trainer.test(mazes[0], max_steps=50)
+    trainer.test(mazes[1], max_steps=50)
+    trainer.test(mazes[2], max_steps=75)
     trainer.test(mazes[3], max_steps=100)
     trainer.test(mazes[6], max_steps=150)
