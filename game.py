@@ -2,13 +2,7 @@ import random
 import numpy as np
 
 
-maze = np.array([
-    [1, 2, 0, 1, 3],
-    [1, 1, 0, 1, 0],
-    [0, 0, 0, 0, 0],
-    [0, 1, 1, 1, 1],
-    [0, 0, 0, 0, 4],
-])
+
 
 num_cell_types = {
     0: "empty",  
@@ -46,7 +40,7 @@ class MazeGame:
         for i in range(self.maze.shape[0]):
             for j in range(self.maze.shape[1]):
                 if self.maze[i, j] == target_value:
-                    return (i, j)
+                    return [i, j]
         return None
 
     def reset(self):
