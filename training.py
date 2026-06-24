@@ -12,8 +12,8 @@ from model import MazeTransformer
 def get_current_maze(game, original_maze):
     """Returns maze with player at current position (not start)."""
     m = original_maze.copy()
-    m[m == 3] = 0               # امسح موضع اللاعب الأصلي
-    m[game.agent_pos] = 3       # ضعه في موضعه الحالي
+    m[m == 3] = 0               
+    m[game.agent_pos] = 3       
     return m
 
 
