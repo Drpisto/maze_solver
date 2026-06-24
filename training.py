@@ -43,51 +43,68 @@ class DQNTrainer:
         shaping = prev_dist - curr_dist  
         return reward + 0.5 * shaping
 
+    def monte_carlo_returns(self, rewards):
+        """Calculate Monte Carlo returns from episode rewards using discount factor gamma"""
+        returns = []
+        cumulative_return = 0
+        for reward in reversed(rewards):
+            cumulative_return = reward + self.gamma * cumulative_return
+            returns.insert(0, cumulative_return)
+        return returns
 
-    def train(self, num_episodes=100, maze_type="random",max_steps=100):
-        """Train the agent on mazes"""
+
+    def train(self, num_episodes=100, maze_type="random", max_steps=100):
+        """Train the agent on mazes using Monte Carlo returns"""
         print("=" * 60)
-        
         print(f"Training on {len(self.mazes)} mazes | Type: {maze_type}")
+        print("Monte Carlo Returns enabled")
         print("=" * 60)
 
         for episode in range(num_episodes):
             original_maze = self._select_maze(maze_type)
             game = MazeGame(original_maze)
             game.reset()
-            episode_reward = 0
+            
+            episode_transitions = []
+            episode_rewards = []
             steps = 0
 
             while steps < max_steps:
-                
                 current_maze = get_current_maze(game, original_maze)
-
                 action = self.choose_action(current_maze)
                 prev_pos = list(game.agent_pos)
                 state, reward, done = game.step(action)
                 
-                
                 reward = self.shaped_reward(reward, prev_pos, game)
-                episode_reward += reward
-                steps += 1
-
+                episode_rewards.append(reward)
+                
                 maze_tensor = torch.tensor(current_maze, dtype=torch.long).to(self.device)
                 log_probs, value = self.agent(maze_tensor)
+                
+                episode_transitions.append({
+                    'log_probs': log_probs,
+                    'value': value,
+                    'action': action
+                })
+                
+                steps += 1
+                if done:
+                    break
 
-                advantage = reward - value.item()
-                policy_loss = -log_probs[action] * advantage
-
-                value_loss = (value - reward) ** 2
-
+            returns = self.monte_carlo_returns(episode_rewards)
+            
+            for i, (transition, ret) in enumerate(zip(episode_transitions, returns)):
+                advantage = ret - transition['value'].item()
+                policy_loss = -transition['log_probs'][transition['action']] * advantage
+                value_loss = (transition['value'] - ret) ** 2
+                
                 loss = policy_loss + 0.5 * value_loss
-
+                
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
 
-                if done:
-                    break
-
+            episode_reward = sum(episode_rewards)
             if (episode + 1) % 10 == 0:
                 print(f"Episode {episode + 1}/{num_episodes} | "
                       f"Reward: {episode_reward:.2f} | Steps: {steps} | Points: {game.points}")
