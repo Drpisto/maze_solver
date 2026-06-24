@@ -94,6 +94,7 @@ class MazeGame:
                 # Check for coin collection
                 if self.maze[new_pos] == 2:  # 2 is coin
                     reward += self.reward_coin()
+                    self.maze[new_pos] = 0
                 self.agent_pos = new_pos
             else:
                 # Hit a wall - penalty and no movement

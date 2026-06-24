@@ -109,6 +109,6 @@ maze_9x9_v3 = np.array([
     [1, 1, 1, 1, 1, 1, 1, 1, 1]
 ])
 
-mazes = [[maze_5x5, maze_5x5_v2, maze_5x5_v3], 
+mazes = [[maze_5x5, maze_5x5_v2, maze_5x5_v3,maze_5x5_v4], 
          [maze_7x7, maze_7x7_v2, maze_7x7_v3], 
          [maze_9x9, maze_9x9_v2, maze_9x9_v3]]
