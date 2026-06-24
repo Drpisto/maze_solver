@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+
 
 
 class MazeTransformer(nn.Module):
@@ -38,26 +38,24 @@ class MazeTransformer(nn.Module):
 
         self.norm2 = nn.LayerNorm(embed_dim)
 
-        self.policy_head = nn.Linear(embed_dim, 4)
-
-        
-        self.value_head = nn.Linear(embed_dim, 1)
+        self.q_head = nn.Linear(embed_dim, 4)
 
     def forward(self, maze):
         if not isinstance(maze, torch.Tensor):
-            maze = torch.tensor(maze)
+            maze = torch.tensor(maze, dtype=torch.long)
 
         maze = maze.long()
 
-        x = maze.flatten()                      # [N]
+        if maze.dim() == 2:
+            maze = maze.unsqueeze(0)
 
-        x = self.embedding(x)                   # [N, D]
+        B, H, W = maze.shape
+        N = H * W
+        x = maze.view(B, N)
+        x = self.embedding(x)
 
-        
-        positions = torch.arange(x.shape[0], device=maze.device)
-        x = x + self.pos_embedding(positions)   # [N, D]
-
-        x = x.unsqueeze(0)                      # [1, N, D]
+        positions = torch.arange(N, device=maze.device).unsqueeze(0).expand(B, -1)
+        x = x + self.pos_embedding(positions)
 
         attn_out, _ = self.attention(x, x, x)
         x = self.norm1(x + attn_out)
@@ -65,12 +63,11 @@ class MazeTransformer(nn.Module):
         ffn_out = self.ffn(x)
         x = self.norm2(x + ffn_out)
 
-        maze_repr = x.mean(dim=1)               # [1, D]
+        maze_repr = x.mean(dim=1)
 
-        
-        log_probs = F.log_softmax(self.policy_head(maze_repr), dim=-1).squeeze(0)  # [4]
+        q_values = self.q_head(maze_repr)
 
-        
-        value = self.value_head(maze_repr).squeeze()                               # scalar
+        if B == 1:
+            q_values = q_values.squeeze(0)
 
-        return log_probs, value
+        return q_values
