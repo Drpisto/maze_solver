@@ -107,6 +107,8 @@ class MazeGame:
         else:
             # Out of bounds
             reward = self.reward_out_of_bounds()
+            done = True  # End the game if out of bounds
+        
 
         if self.check_win():
             reward = self.reward_win()
@@ -118,11 +120,7 @@ class MazeGame:
         
         return self.agent_pos == self.goal_pos
     
-    def check_loss(self):
-        return self.maze[self.agent_pos] == 1  # 1 is wall
     
-    def update_agent_position(self, new_pos):
-        if self.maze[new_pos] != 1:  # 1 is wall
-            self.agent_pos = new_pos
+    
 
 
