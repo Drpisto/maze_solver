@@ -79,11 +79,9 @@ class DQNTrainer:
                 episode_rewards.append(reward)
                 
                 maze_tensor = torch.tensor(current_maze, dtype=torch.long).to(self.device)
-                log_probs, value = self.agent(maze_tensor)
                 
                 episode_transitions.append({
-                    'log_probs': log_probs,
-                    'value': value,
+                    'maze_tensor': maze_tensor,
                     'action': action
                 })
                 
@@ -94,9 +92,11 @@ class DQNTrainer:
             returns = self.monte_carlo_returns(episode_rewards)
             
             for i, (transition, ret) in enumerate(zip(episode_transitions, returns)):
-                advantage = ret - transition['value'].item()
-                policy_loss = -transition['log_probs'][transition['action']] * advantage
-                value_loss = (transition['value'] - ret) ** 2
+                log_probs, value = self.agent(transition['maze_tensor'])
+                
+                advantage = ret - value.item()
+                policy_loss = -log_probs[transition['action']] * advantage
+                value_loss = (value - ret) ** 2
                 
                 loss = policy_loss + 0.5 * value_loss
                 
