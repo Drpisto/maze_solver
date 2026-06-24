@@ -36,6 +36,15 @@ class DQNTrainer:
             log_probs, _ = self.agent(maze_tensor)          # FIX B: unpack (log_probs, value)
             return torch.argmax(log_probs).item()
 
+    def shaped_reward(self, reward, prev_pos, game):
+        """Apply reward shaping based on Manhattan distance to goal"""
+        
+        prev_dist = abs(prev_pos[0] - game.goal_pos[0]) + abs(prev_pos[1] - game.goal_pos[1])
+        curr_dist = abs(game.agent_pos[0] - game.goal_pos[0]) + abs(game.agent_pos[1] - game.goal_pos[1])
+        shaping = prev_dist - curr_dist  
+        return reward + 0.5 * shaping
+
+
     def train(self, num_episodes=100, maze_type="random"):
         """Train the agent on mazes"""
         print("=" * 60)
@@ -54,7 +63,11 @@ class DQNTrainer:
                 current_maze = get_current_maze(game, original_maze)
 
                 action = self.choose_action(current_maze)
+                prev_pos = game.agent_pos.copy()  # Store previous position for reward shaping
                 state, reward, done = game.step(action)
+                
+                # Apply reward shaping based on Manhattan distance to goal
+                reward = self.shaped_reward(reward, prev_pos, game)
                 episode_reward += reward
                 steps += 1
 
@@ -121,7 +134,9 @@ class DQNTrainer:
             # FIX A: هنا أيضاً نستخدم الحالة الحالية
             current_maze = get_current_maze(game, maze)
             action = self.choose_action(current_maze)
+            prev_pos = game.agent_pos.copy()  # Store previous position for reward shaping
             state, reward, done = game.step(action)
+            reward = self.shaped_reward(reward, prev_pos, game)  # Apply reward shaping
             total_reward += reward
             steps += 1
 
