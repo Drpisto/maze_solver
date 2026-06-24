@@ -17,16 +17,26 @@ def get_current_maze(game, original_maze):
 
 
 class DQNTrainer:
-    def __init__(self, agent, optimizer, mazes, gamma=0.9, epsilon=0.2, device="cpu"):
+    def __init__(self, agent, optimizer, mazes, gamma=0.9, epsilon=0.2, device="cpu", epsilon_start=0.9, epsilon_end=0.05):
+        self.epsilon_start = epsilon_start
+        self.epsilon_end   = epsilon_end
+        self.epsilon       = self.epsilon_start
         self.agent = agent
         self.optimizer = optimizer
         self.mazes = mazes
         self.gamma = gamma
-        self.epsilon = epsilon
+        
         self.device = device
+        
+        
 
-    def choose_action(self, maze):
+    def choose_action(self, maze,episode,num_episodes ):
+
+
+        progress = episode / num_episodes
+        self.epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * (1 - progress)
         """Choose action using epsilon-greedy policy"""
+        
         if random.random() < self.epsilon:
             return random.choice([0, 1, 2, 3])
 
@@ -34,6 +44,8 @@ class DQNTrainer:
             maze_tensor = torch.tensor(maze, dtype=torch.long).to(self.device)
             log_probs, _ = self.agent(maze_tensor)
             return torch.argmax(log_probs).item()
+
+    
 
     def shaped_reward(self, reward, prev_pos, game):
         """Apply reward shaping based on Manhattan distance to goal"""
@@ -71,7 +83,7 @@ class DQNTrainer:
 
             while steps < max_steps:
                 current_maze = get_current_maze(game, original_maze)
-                action = self.choose_action(current_maze)
+                action = self.choose_action(current_maze, episode, num_episodes)
                 prev_pos = list(game.agent_pos)
                 state, reward, done = game.step(action)
                 
@@ -145,7 +157,7 @@ class DQNTrainer:
 
         while not done and steps < max_steps:
             current_maze = get_current_maze(game, maze)
-            action = self.choose_action(current_maze)
+            action = self.choose_action(current_maze, 1, 1)  # Epsilon is irrelevant during testing
             prev_pos = list(game.agent_pos)
             state, reward, done = game.step(action)
             reward = self.shaped_reward(reward, prev_pos, game)
