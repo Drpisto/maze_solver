@@ -44,9 +44,10 @@ class DQNTrainer:
         return reward + 0.5 * shaping
 
 
-    def train(self, num_episodes=100, maze_type="random"):
+    def train(self, num_episodes=100, maze_type="random",max_steps=100):
         """Train the agent on mazes"""
         print("=" * 60)
+        
         print(f"Training on {len(self.mazes)} mazes | Type: {maze_type}")
         print("=" * 60)
 
@@ -57,15 +58,15 @@ class DQNTrainer:
             episode_reward = 0
             steps = 0
 
-            while steps < 100:
-                # FIX A: استخدم maze محدّث يعكس موضع اللاعب الحالي
+            while steps < max_steps:
+                
                 current_maze = get_current_maze(game, original_maze)
 
                 action = self.choose_action(current_maze)
-                prev_pos = game.agent_pos.copy()  # Store previous position for reward shaping
+                prev_pos = list(game.agent_pos)
                 state, reward, done = game.step(action)
                 
-                # Apply reward shaping based on Manhattan distance to goal
+                
                 reward = self.shaped_reward(reward, prev_pos, game)
                 episode_reward += reward
                 steps += 1
@@ -100,11 +101,11 @@ class DQNTrainer:
         if maze_type == "random":
             return random.choice(self.mazes)
         elif maze_type == "5x5":
-            return self.mazes[0]
+            return random.choice(self.mazes[0])
         elif maze_type == "7x7":
-            return self.mazes[3]
+            return random.choice(self.mazes[1])
         elif maze_type == "9x9":
-            return self.mazes[6]
+            return random.choice(self.mazes[2])
         return random.choice(self.mazes)
 
     def save_model(self, path="maze_model.pth"):
@@ -128,7 +129,7 @@ class DQNTrainer:
         while not done and steps < max_steps:
             current_maze = get_current_maze(game, maze)
             action = self.choose_action(current_maze)
-            prev_pos = game.agent_pos.copy()
+            prev_pos = list(game.agent_pos)
             state, reward, done = game.step(action)
             reward = self.shaped_reward(reward, prev_pos, game)
             total_reward += reward
@@ -153,14 +154,17 @@ if __name__ == "__main__":
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     trainer = DQNTrainer(model, optimizer, mazes, gamma=0.9, epsilon=0.2, device=device)
 
-    trainer.train(num_episodes=100, maze_type="random")
+    trainer.train(num_episodes=100, maze_type="5x5", max_steps=50)
     trainer.save_model("maze_model.pth")
 
     print("\n" + "=" * 60)
     print("Testing Results")
     print("=" * 60)
-    trainer.test(mazes[0], max_steps=50)
-    trainer.test(mazes[1], max_steps=50)
-    trainer.test(mazes[2], max_steps=75)
-    trainer.test(mazes[3], max_steps=100)
-    trainer.test(mazes[6], max_steps=150)
+
+    print("Testing on 5x5 mazes:")
+    trainer.test(random.choice(mazes[0]), max_steps=50)
+    print("\nTesting on 7x7 mazes:")
+    trainer.test(random.choice(mazes[1]), max_steps=50)
+    print("\nTesting on 9x9 mazes:")
+    trainer.test(random.choice(mazes[2]), max_steps=75)
+    
