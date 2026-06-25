@@ -49,6 +49,11 @@ class DQNTrainer:
         self.target_update_steps = 500
         self.step_count = 0
 
+    def shape_reward(self, reward, prev_pos, game):
+        prev_dist = abs(prev_pos[0] - game.goal_pos[0]) + abs(prev_pos[1] - game.goal_pos[1])
+        curr_dist = abs(game.agent_pos[0] - game.goal_pos[0]) + abs(game.agent_pos[1] - game.goal_pos[1])
+        return reward + 2.0 * (prev_dist - curr_dist)
+
     def choose_action(self, maze):
         if random.random() < self.epsilon:
             return random.choice([0, 1, 2, 3])
@@ -76,9 +81,8 @@ class DQNTrainer:
                 prev_pos = list(game.agent_pos)
                 action = self.choose_action(state)
                 _, reward, done = game.step(action)
+                reward = self.shape_reward(reward, prev_pos, game)
                 next_state = get_current_maze(game, original_maze)
-                reward += 0.5 * (abs(prev_pos[0] - game.goal_pos[0]) + abs(prev_pos[1] - game.goal_pos[1])
-                                 - abs(game.agent_pos[0] - game.goal_pos[0]) - abs(game.agent_pos[1] - game.goal_pos[1]))
                 episode_reward += reward
 
                 buffer.push(state, action, reward, next_state, done)
