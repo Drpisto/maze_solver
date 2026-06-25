@@ -4,7 +4,7 @@ from collections import deque
 import numpy as np
 import torch
 import torch.optim as optim
-from training_mazes import mazes
+from training_mazes import mazes, bfs
 from game import MazeGame
 from model import MazeTransformer
 
@@ -53,6 +53,22 @@ class DQNTrainer:
         prev_dist = abs(prev_pos[0] - game.goal_pos[0]) + abs(prev_pos[1] - game.goal_pos[1])
         curr_dist = abs(game.agent_pos[0] - game.goal_pos[0]) + abs(game.agent_pos[1] - game.goal_pos[1])
         return reward + 2.0 * (prev_dist - curr_dist)
+
+    def seed_buffer(self):
+        for maze_list in self.mazes:
+            for original_maze in maze_list:
+                actions = bfs(original_maze)
+                if not actions:
+                    continue
+                game = MazeGame(original_maze.copy())
+                game.reset()
+                for action in actions:
+                    prev_pos = list(game.agent_pos)
+                    state = get_current_maze(game, original_maze)
+                    _, reward, done = game.step(action)
+                    reward = self.shape_reward(reward, prev_pos, game)
+                    next_state = get_current_maze(game, original_maze)
+                    self.buffer.push(state, action, reward, next_state, done)
 
     def choose_action(self, maze):
         if random.random() < self.epsilon:
@@ -181,6 +197,10 @@ if __name__ == "__main__":
     optimizer = optim.Adam(model.parameters(), lr=0.001)
     trainer = DQNTrainer(model, optimizer, mazes, gamma=0.99, epsilon=1.0, device=device,
                          batch_size=64, buffer_capacity=10000)
+
+    print("Seeding buffer with expert trajectories...")
+    trainer.seed_buffer()
+    print(f"Buffer size after seeding: {len(trainer.buffer)}")
 
     trainer.train(num_episodes=200, maze_type="5x5", max_steps=50)
     trainer.save_model("maze_model.pth")
