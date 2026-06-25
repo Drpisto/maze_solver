@@ -18,7 +18,7 @@ class MazeGame:
         "step": -0.1,         # Small step cost to encourage efficiency
         "wall_hit": -1.0,     # Mild wall penalty
         "out_of_bounds": -10.0, # Harsh — ends the game
-        "win": 10.0,          # Big reward for solving
+        "win": 50.0,          # Big reward for solving
         "coin": 3.0,          # Actual reward for collecting coin
         "win_points": 10      # Bonus points for winning (tracked separately)
     }

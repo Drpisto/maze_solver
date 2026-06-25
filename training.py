@@ -73,9 +73,12 @@ class DQNTrainer:
             state = get_current_maze(game, original_maze)
 
             for step in range(max_steps):
+                prev_pos = list(game.agent_pos)
                 action = self.choose_action(state)
                 _, reward, done = game.step(action)
                 next_state = get_current_maze(game, original_maze)
+                reward += 0.5 * (abs(prev_pos[0] - game.goal_pos[0]) + abs(prev_pos[1] - game.goal_pos[1])
+                                 - abs(game.agent_pos[0] - game.goal_pos[0]) - abs(game.agent_pos[1] - game.goal_pos[1]))
                 episode_reward += reward
 
                 buffer.push(state, action, reward, next_state, done)
