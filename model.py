@@ -38,7 +38,7 @@ class MazeTransformer(nn.Module):
 
         self.norm2 = nn.LayerNorm(embed_dim)
 
-        self.q_head = nn.Linear(embed_dim, 4)
+        self.q_head = nn.Linear(embed_dim + 2, 4)
 
     def forward(self, maze):
         if not isinstance(maze, torch.Tensor):
@@ -65,7 +65,15 @@ class MazeTransformer(nn.Module):
 
         maze_repr = x.mean(dim=1)
 
-        q_values = self.q_head(maze_repr)
+        # Extract agent position from the maze grid (marked as value 3)
+        agent_mask = (maze == 3).float()
+        rows = torch.arange(H, device=maze.device).view(1, H, 1) * agent_mask
+        cols = torch.arange(W, device=maze.device).view(1, 1, W) * agent_mask
+        pos = torch.stack([rows.sum((1, 2)), cols.sum((1, 2))], dim=1)
+        pos = pos / torch.tensor([H, W], device=maze.device).unsqueeze(0)
+
+        x_pooled = torch.cat([maze_repr, pos], dim=-1)
+        q_values = self.q_head(x_pooled)
 
         if B == 1:
             q_values = q_values.squeeze(0)
