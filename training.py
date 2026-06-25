@@ -35,7 +35,7 @@ class ReplayBuffer:
 
 class DQNTrainer:
     def __init__(self, agent, optimizer, mazes, gamma=0.99, epsilon=1.0, device="cpu",
-                 batch_size=64, buffer_capacity=10000):
+                 batch_size=64, buffer_capacity=10000, warmup_steps=50):
         self.agent = agent
         self.optimizer = optimizer
         self.mazes = mazes
@@ -48,6 +48,7 @@ class DQNTrainer:
         self.target_net.eval()
         self.target_update_steps = 500
         self.step_count = 0
+        self.warmup_steps = warmup_steps
 
     def shape_reward(self, reward, prev_pos, game):
         prev_dist = abs(prev_pos[0] - game.goal_pos[0]) + abs(prev_pos[1] - game.goal_pos[1])
@@ -106,6 +107,24 @@ class DQNTrainer:
 
         buffer = self.buffer
         batch_size = self.batch_size
+
+        if self.warmup_steps > 0 and len(buffer) >= batch_size:
+            print(f"Warm-up: {self.warmup_steps} gradient steps on seeded data...")
+            for _ in range(self.warmup_steps):
+                states, actions, rewards, next_states, dones = buffer.sample(batch_size)
+                states = torch.tensor(states, dtype=torch.long).to(self.device)
+                actions = torch.tensor(actions, dtype=torch.long).to(self.device)
+                rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
+                next_states = torch.tensor(next_states, dtype=torch.long).to(self.device)
+                dones = torch.tensor(dones, dtype=torch.float32).to(self.device)
+                with torch.no_grad():
+                    q_next = self.target_net(next_states).max(dim=1)[0]
+                    target = rewards + self.gamma * q_next * (1 - dones)
+                q_sa = self.agent(states).gather(1, actions.unsqueeze(1)).squeeze(1)
+                (q_sa - target).mean().backward()
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+            print("Warm-up complete.")
 
         for episode in range(num_episodes):
             original_maze = self._select_maze(maze_type)
