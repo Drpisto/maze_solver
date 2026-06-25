@@ -1,4 +1,5 @@
 import random
+from collections import deque
 import numpy as np
 import torch
 import torch.optim as optim
@@ -14,14 +15,34 @@ def get_current_maze(game, original_maze):
     return m
 
 
+class ReplayBuffer:
+    def __init__(self, capacity=10000):
+        self.buffer = deque(maxlen=capacity)
+
+    def push(self, state, action, reward, next_state, done):
+        self.buffer.append((state, action, reward, next_state, done))
+
+    def sample(self, batch_size):
+        batch = random.sample(self.buffer, batch_size)
+        states, actions, rewards, next_states, dones = zip(*batch)
+        return (np.array(states), np.array(actions), np.array(rewards, dtype=np.float32),
+                np.array(next_states), np.array(dones, dtype=np.float32))
+
+    def __len__(self):
+        return len(self.buffer)
+
+
 class DQNTrainer:
-    def __init__(self, agent, optimizer, mazes, gamma=0.99, epsilon=1.0, device="cpu"):
+    def __init__(self, agent, optimizer, mazes, gamma=0.99, epsilon=1.0, device="cpu",
+                 batch_size=64, buffer_capacity=10000):
         self.agent = agent
         self.optimizer = optimizer
         self.mazes = mazes
         self.gamma = gamma
         self.epsilon = epsilon
         self.device = device
+        self.batch_size = batch_size
+        self.buffer = ReplayBuffer(buffer_capacity)
 
     def choose_action(self, maze):
         if random.random() < self.epsilon:
@@ -36,6 +57,9 @@ class DQNTrainer:
         print(f"Training on {len(self.mazes)} mazes | Type: {maze_type}")
         print("=" * 60)
 
+        buffer = self.buffer
+        batch_size = self.batch_size
+
         for episode in range(num_episodes):
             original_maze = self._select_maze(maze_type)
             game = MazeGame(original_maze)
@@ -49,20 +73,29 @@ class DQNTrainer:
                 next_state = get_current_maze(game, original_maze)
                 episode_reward += reward
 
-                state_t = torch.tensor(state, dtype=torch.long).to(self.device)
-                next_state_t = torch.tensor(next_state, dtype=torch.long).to(self.device)
+                buffer.push(state, action, reward, next_state, done)
 
-                q_sa = self.agent(state_t)[action]
+                if len(buffer) >= batch_size:
+                    states, actions, rewards, next_states, dones = buffer.sample(batch_size)
 
-                with torch.no_grad():
-                    q_next = self.agent(next_state_t).max() if not done else 0.0
-                target = reward + self.gamma * q_next
+                    states = torch.tensor(states, dtype=torch.long).to(self.device)
+                    actions = torch.tensor(actions, dtype=torch.long).to(self.device)
+                    rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
+                    next_states = torch.tensor(next_states, dtype=torch.long).to(self.device)
+                    dones = torch.tensor(dones, dtype=torch.float32).to(self.device)
 
-                loss = (q_sa - target) ** 2
+                    q_values = self.agent(states)
+                    q_sa = q_values.gather(1, actions.unsqueeze(1)).squeeze(1)
 
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
+                    with torch.no_grad():
+                        q_next = self.agent(next_states).max(dim=1)[0]
+                        target = rewards + self.gamma * q_next * (1 - dones)
+
+                    loss = (q_sa - target).mean()
+
+                    self.optimizer.zero_grad()
+                    loss.backward()
+                    self.optimizer.step()
 
                 state = next_state
                 if done:
@@ -130,7 +163,8 @@ if __name__ == "__main__":
 
     model = MazeTransformer(num_cell_types=5, embed_dim=32, num_heads=4).to(device)
     optimizer = optim.Adam(model.parameters(), lr=0.001)
-    trainer = DQNTrainer(model, optimizer, mazes, gamma=0.99, epsilon=1.0, device=device)
+    trainer = DQNTrainer(model, optimizer, mazes, gamma=0.99, epsilon=1.0, device=device,
+                         batch_size=64, buffer_capacity=10000)
 
     trainer.train(num_episodes=200, maze_type="5x5", max_steps=50)
     trainer.save_model("maze_model.pth")
