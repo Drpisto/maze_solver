@@ -1,3 +1,4 @@
+import copy
 import random
 from collections import deque
 import numpy as np
@@ -43,6 +44,10 @@ class DQNTrainer:
         self.device = device
         self.batch_size = batch_size
         self.buffer = ReplayBuffer(buffer_capacity)
+        self.target_net = copy.deepcopy(agent)
+        self.target_net.eval()
+        self.target_update_steps = 500
+        self.step_count = 0
 
     def choose_action(self, maze):
         if random.random() < self.epsilon:
@@ -88,7 +93,7 @@ class DQNTrainer:
                     q_sa = q_values.gather(1, actions.unsqueeze(1)).squeeze(1)
 
                     with torch.no_grad():
-                        q_next = self.agent(next_states).max(dim=1)[0]
+                        q_next = self.target_net(next_states).max(dim=1)[0]
                         target = rewards + self.gamma * q_next * (1 - dones)
 
                     loss = (q_sa - target).mean()
@@ -96,6 +101,10 @@ class DQNTrainer:
                     self.optimizer.zero_grad()
                     loss.backward()
                     self.optimizer.step()
+
+                    self.step_count += 1
+                    if self.step_count % self.target_update_steps == 0:
+                        self.target_net.load_state_dict(self.agent.state_dict())
 
                 state = next_state
                 if done:
