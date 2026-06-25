@@ -54,21 +54,42 @@ class DQNTrainer:
         curr_dist = abs(game.agent_pos[0] - game.goal_pos[0]) + abs(game.agent_pos[1] - game.goal_pos[1])
         return reward + 2.0 * (prev_dist - curr_dist)
 
-    def seed_buffer(self):
-        for maze_list in self.mazes:
-            for original_maze in maze_list:
-                actions = bfs(original_maze)
-                if not actions:
-                    continue
-                game = MazeGame(original_maze.copy())
-                game.reset()
-                for action in actions:
-                    prev_pos = list(game.agent_pos)
-                    state = get_current_maze(game, original_maze)
-                    _, reward, done = game.step(action)
-                    reward = self.shape_reward(reward, prev_pos, game)
-                    next_state = get_current_maze(game, original_maze)
-                    self.buffer.push(state, action, reward, next_state, done)
+    def seed_buffer(self, maze_type="5x5"):
+        if maze_type == "5x5":
+            mazes_to_seed = self.mazes[0]
+        elif maze_type == "7x7":
+            mazes_to_seed = self.mazes[1]
+        elif maze_type == "9x9":
+            mazes_to_seed = self.mazes[2]
+        else:
+            for ml in self.mazes:
+                for m in ml:
+                    actions = bfs(m)
+                    if not actions:
+                        continue
+                    game = MazeGame(m.copy())
+                    game.reset()
+                    for action in actions:
+                        prev_pos = list(game.agent_pos)
+                        state = get_current_maze(game, m)
+                        _, reward, done = game.step(action)
+                        reward = self.shape_reward(reward, prev_pos, game)
+                        next_state = get_current_maze(game, m)
+                        self.buffer.push(state, action, reward, next_state, done)
+            return
+        for original_maze in mazes_to_seed:
+            actions = bfs(original_maze)
+            if not actions:
+                continue
+            game = MazeGame(original_maze.copy())
+            game.reset()
+            for action in actions:
+                prev_pos = list(game.agent_pos)
+                state = get_current_maze(game, original_maze)
+                _, reward, done = game.step(action)
+                reward = self.shape_reward(reward, prev_pos, game)
+                next_state = get_current_maze(game, original_maze)
+                self.buffer.push(state, action, reward, next_state, done)
 
     def choose_action(self, maze):
         if random.random() < self.epsilon:
@@ -199,10 +220,10 @@ if __name__ == "__main__":
                          batch_size=64, buffer_capacity=10000)
 
     print("Seeding buffer with expert trajectories...")
-    trainer.seed_buffer()
+    trainer.seed_buffer("9x9")
     print(f"Buffer size after seeding: {len(trainer.buffer)}")
 
-    trainer.train(num_episodes=200, maze_type="5x5", max_steps=50)
+    trainer.train(num_episodes=200, maze_type="9x9", max_steps=50)
     trainer.save_model("maze_model.pth")
 
     print("\n" + "=" * 60)
