@@ -15,12 +15,12 @@ num_cell_types = {
 class MazeGame: 
     # Editable reward configuration
     REWARDS = {
-        "step": -1,           # Cost per step
-        "wall_hit": -20,      # Hit wall penalty
-        "out_of_bounds": -20, # Out of bounds penalty
-        "win": 10,            # Win reward
-        "coin": 5,            # Coin collection reward
-        "win_points": 10      # Bonus points for winning
+        "step": -0.1,         # Small step cost to encourage efficiency
+        "wall_hit": -1.0,     # Mild wall penalty
+        "out_of_bounds": -10.0, # Harsh — ends the game
+        "win": 10.0,          # Big reward for solving
+        "coin": 3.0,          # Actual reward for collecting coin
+        "win_points": 10      # Bonus points for winning (tracked separately)
     }
     
     def __init__(self, maze ):
@@ -59,8 +59,8 @@ class MazeGame:
     
     def reward_coin(self):
         """Reward and points for collecting a coin"""
-        self.points += self.REWARDS["coin"]
-        return 0  # No additional reward, just points
+        self.points += 5
+        return self.REWARDS["coin"]
     
     def reward_wall_hit(self):
         """Penalty for hitting a wall"""
